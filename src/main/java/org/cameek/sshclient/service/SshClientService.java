@@ -5,19 +5,32 @@ import org.apache.sshd.client.channel.ClientChannel;
 import org.apache.sshd.client.channel.ClientChannelEvent;
 import org.apache.sshd.client.session.ClientSession;
 import org.apache.sshd.common.channel.Channel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.concurrent.TimeUnit;
 
 @Component
 public class SshClientService {
 
-    public void listFolderStructure(String username, String password,
+    private static final Logger log = LoggerFactory.getLogger(SshClientService.class);
+
+    private static final String[] IGNORE_STRS = new String[] { "tput[:] unknown terminal [\"]dummy[\"](\r?)(\n?)" };
+
+//    private
+//
+//    public SshClientService(@Autowired ) {
+//    }
+
+    public String listFolderStructure(String username, String password,
                                            String host, int port, long defaultTimeoutSeconds, String command) throws IOException {
 
         SshClient client = SshClient.setUpDefaultClient();
@@ -42,8 +55,27 @@ public class SshClientService {
                                     ClientChannelEvent.EOF, ClientChannelEvent.EXIT_SIGNAL, ClientChannelEvent.STDERR_DATA,
                                     ClientChannelEvent.STDOUT_DATA),
                             TimeUnit.SECONDS.toMillis(defaultTimeoutSeconds));
-                    String responseString = new String(responseStream.toByteArray());
-                    System.out.println(responseString);
+                    final String responseString = responseStream.toString();
+
+                    log.debug("Received without filtering: " + responseString);
+
+                    String filteredResponseString = responseString;
+                    for (final String str : IGNORE_STRS) {
+                        filteredResponseString = filteredResponseString.replaceAll(str, "");
+                    }
+
+                    log.debug("Received filtered: " + filteredResponseString);
+
+                    return filteredResponseString;
+
+//                    if (Arrays.stream(IGNORE_STRS).anyMatch(
+//                            p -> p.trim().toLowerCase().contains(responseString.trim().toLowerCase())
+//                    )) {
+//                        log.info("Received: " + responseString);
+//                    } else {
+//                        log.debug("Received, but ignored: " + responseString);
+//                    }
+
                 } finally {
                     channel.close(false);
                 }

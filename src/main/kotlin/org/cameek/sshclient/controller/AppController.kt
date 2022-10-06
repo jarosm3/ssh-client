@@ -49,10 +49,12 @@ class AppController(
 
                 val command = "ls -all\n"
                 log.info("Calling SSH Client Service: $command")
-                sshClientService.listFolderStructure("jarosm3", "lqrtpb_2",
+                val result = sshClientService.listFolderStructure("jarosm3", "lqrtpb_2",
                     "127.0.0.1", 2231, 10, command
                 )
                 log.info("Called  SSH Client Service: $command")
+
+                textArea.appendText(result)
             }
         }
 
