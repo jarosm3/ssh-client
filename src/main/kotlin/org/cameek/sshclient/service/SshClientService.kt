@@ -1,88 +1,108 @@
-package org.cameek.sshclient.service;
+package org.cameek.sshclient.service
 
-import org.apache.sshd.client.SshClient;
-import org.apache.sshd.client.channel.ClientChannel;
-import org.apache.sshd.client.channel.ClientChannelEvent;
-import org.apache.sshd.client.session.ClientSession;
-import org.apache.sshd.common.channel.Channel;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.concurrent.TimeUnit;
+import org.apache.commons.lang3.StringUtils
+import org.apache.sshd.client.SshClient
+import org.apache.sshd.client.channel.ClientChannelEvent
+import org.apache.sshd.common.channel.Channel
+import org.slf4j.LoggerFactory
+import org.springframework.stereotype.Component
+import java.io.ByteArrayOutputStream
+import java.util.EnumSet
+import java.util.concurrent.TimeUnit
 
 @Component
-public class SshClientService {
+class SshClientService {
 
-    private static final Logger log = LoggerFactory.getLogger(SshClientService.class);
+    companion object {
+        private val log = LoggerFactory.getLogger(SshClientService::class.java)
+        private val IGNORE_STRS = arrayOf("tput[:] unknown terminal [\"]dummy[\"](\r?)(\n?)")
 
-    private static final String[] IGNORE_STRS = new String[] { "tput[:] unknown terminal [\"]dummy[\"](\r?)(\n?)" };
+        private val WAIT_FOR_EVENTS = EnumSet.of(
+            ClientChannelEvent.CLOSED,
+            ClientChannelEvent.EXIT_STATUS,
+            ClientChannelEvent.EOF,
+            ClientChannelEvent.EXIT_SIGNAL,
+            ClientChannelEvent.STDERR_DATA,
+            ClientChannelEvent.STDOUT_DATA
+        )
+    }
 
-//    private
-//
-//    public SshClientService(@Autowired ) {
-//    }
+    fun remoteCommand(
+        username: String, password: String,
+        host: String, port: Int,
+        defaultTimeoutSeconds: Long,
+        command: String
+    ): String {
 
-    public String listFolderStructure(String username, String password,
-                                           String host, int port, long defaultTimeoutSeconds, String command) throws IOException {
+        var result = "";
 
-        SshClient client = SshClient.setUpDefaultClient();
-        client.start();
+        log.debug("remoteCommand(...) - Begin")
 
-        try (ClientSession session = client.connect(username, host, port)
-                .verify(defaultTimeoutSeconds, TimeUnit.SECONDS).getSession()) {
-            session.addPasswordIdentity(password);
-            session.auth().verify(defaultTimeoutSeconds, TimeUnit.SECONDS);
+        val client = SshClient.setUpDefaultClient()
+        client.start()
 
-            try (ByteArrayOutputStream responseStream = new ByteArrayOutputStream();
-                 ClientChannel channel = session.createChannel(Channel.CHANNEL_SHELL)) {
-                channel.setOut(responseStream);
-                try {
-                    channel.open().verify(defaultTimeoutSeconds, TimeUnit.SECONDS);
-                    try (OutputStream pipedIn = channel.getInvertedIn()) {
-                        pipedIn.write(command.getBytes());
-                        pipedIn.flush();
+        try {
+            client
+                .connect(username, host, port)
+                .verify(defaultTimeoutSeconds, TimeUnit.SECONDS)
+
+                .session.use { session ->
+
+                    log.debug("session - Begin")
+
+                    session.addPasswordIdentity(password)
+                    session.auth().verify(defaultTimeoutSeconds, TimeUnit.SECONDS)
+
+                    ByteArrayOutputStream().use { responseStream ->
+
+                        session.createChannel(Channel.CHANNEL_SHELL).use { channel ->
+                            channel.setOut(responseStream)
+                            try {
+                                channel.open().verify(defaultTimeoutSeconds, TimeUnit.SECONDS)
+                                channel.invertedIn.use { pipedIn ->
+                                    pipedIn.write(command.toByteArray())
+                                    pipedIn.flush()
+                                }
+                                channel.waitFor(
+                                    WAIT_FOR_EVENTS,
+                                    TimeUnit.SECONDS.toMillis(defaultTimeoutSeconds)
+                                )
+
+                                val responseString = responseStream.toString()
+
+                                result = filterResponseStr(responseString)
+
+                            } finally {
+                                channel.close(false)
+                            }
+                        }
                     }
 
-                    channel.waitFor(EnumSet.of(ClientChannelEvent.CLOSED, ClientChannelEvent.EXIT_STATUS,
-                                    ClientChannelEvent.EOF, ClientChannelEvent.EXIT_SIGNAL, ClientChannelEvent.STDERR_DATA,
-                                    ClientChannelEvent.STDOUT_DATA),
-                            TimeUnit.SECONDS.toMillis(defaultTimeoutSeconds));
-                    final String responseString = responseStream.toString();
-
-                    log.debug("Received without filtering: " + responseString);
-
-                    String filteredResponseString = responseString;
-                    for (final String str : IGNORE_STRS) {
-                        filteredResponseString = filteredResponseString.replaceAll(str, "");
-                    }
-
-                    log.debug("Received filtered: " + filteredResponseString);
-
-                    return filteredResponseString;
-
-//                    if (Arrays.stream(IGNORE_STRS).anyMatch(
-//                            p -> p.trim().toLowerCase().contains(responseString.trim().toLowerCase())
-//                    )) {
-//                        log.info("Received: " + responseString);
-//                    } else {
-//                        log.debug("Received, but ignored: " + responseString);
-//                    }
-
-                } finally {
-                    channel.close(false);
+                    log.debug("session - End")
                 }
-            }
         } finally {
-            client.stop();
+            client.stop()
         }
+
+        log.debug("remoteCommand(...) - End, Result: ${StringUtils.abbreviate(result, 100)}");
+
+        return result;
+
+    }
+
+    fun filterResponseStr(responseStr: String): String {
+
+        log.debug("filterResponseStr(${StringUtils.abbreviate(responseStr, 100)}) - Begin")
+
+        var filteredResponseString = responseStr
+        for (str in IGNORE_STRS) {
+            filteredResponseString = filteredResponseString.replace(str.toRegex(), "")
+        }
+
+        log.debug("filterResponse(${StringUtils.abbreviate(responseStr, 100)}) - End, "
+                + "Result: ${StringUtils.abbreviate(filteredResponseString, 100)}")
+
+        return filteredResponseString;
     }
 
 }

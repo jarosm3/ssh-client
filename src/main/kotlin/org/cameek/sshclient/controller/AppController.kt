@@ -2,14 +2,10 @@ package org.cameek.sshclient.controller
 
 import javafx.fxml.FXML
 import javafx.scene.Parent
-import javafx.scene.chart.LineChart
 import javafx.scene.control.Button
 import javafx.scene.control.TextArea
-import javafx.scene.layout.Pane
 //import net.rgielen.fxweaver.core.FxmlView
 import org.cameek.sshclient.service.SshClientService
-import org.cameek.sshclient.service.SshClientService2
-import org.cameek.sshclient.stage.StageInitializer
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -42,6 +38,12 @@ class AppController(
     @FXML
     fun initialize() {
 
+//        appPane.isCache = false
+//
+//        textArea.isCache = false
+//
+//        textArea.childrenUnmodifiable.forEach { node -> node.isCache = false }
+
         buttonOk.setOnAction { value ->
             run {
                 log.info("Button OK Clicked! ActionEvent: $value")
@@ -49,7 +51,7 @@ class AppController(
 
                 val command = "ls -all\n"
                 log.info("Calling SSH Client Service: $command")
-                val result = sshClientService.listFolderStructure("jarosm3", "lqrtpb_2",
+                val result = sshClientService.remoteCommand("jarosm3", "lqrtpb_2",
                     "127.0.0.1", 2231, 10, command
                 )
                 log.info("Called  SSH Client Service: $command")
