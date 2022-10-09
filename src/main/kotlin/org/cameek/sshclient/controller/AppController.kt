@@ -72,9 +72,9 @@ class AppController(
                 textArea.appendText("Button 'Multi' Clicked! ActionEvent: $value\n")
 
                 val commands = listOf(
-                    "ls -all /tmp\n",
-                    "ls -all /root\n",
-                    "ls -all /home/jarosm3\n"
+                    "ls -all /tmp\nexit\n",
+                    "ls -all /root\nexit\n",
+                    "ls -all /home/jarosm3\nexit\n"
                 )
 
                 log.info("Calling SSH Client Service: $commands")
