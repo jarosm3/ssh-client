@@ -28,6 +28,14 @@
     <bottom>
         <HBox alignment="CENTER" prefHeight="50.0" prefWidth="200.0">
 
+            <Button fx:id="buttonSingle" text="Single" />
+
+            <Pane minWidth="20" />
+
+            <Button fx:id="buttonMulti" text="Multi" />
+
+            <Pane minWidth="20" />
+
             <Button fx:id="buttonOk" text="OK" />
 
             <Pane minWidth="20" />

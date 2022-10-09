@@ -27,6 +27,12 @@ class AppController(
     lateinit var textArea: TextArea
 
     @FXML
+    lateinit var buttonSingle: Button
+
+    @FXML
+    lateinit var buttonMulti: Button
+
+    @FXML
     lateinit var buttonOk: Button
 
     @FXML
@@ -44,10 +50,10 @@ class AppController(
 //
 //        textArea.childrenUnmodifiable.forEach { node -> node.isCache = false }
 
-        buttonOk.setOnAction { value ->
+        buttonSingle.setOnAction { value ->
             run {
-                log.info("Button OK Clicked! ActionEvent: $value")
-                textArea.appendText("Button OK Clicked! ActionEvent: $value\n")
+                log.info("Button 'Single' Clicked! ActionEvent: $value")
+                textArea.appendText("Button 'Single' Clicked! ActionEvent: $value\n")
 
                 val command = "ls -all\n"
                 log.info("Calling SSH Client Service: $command")
@@ -57,6 +63,41 @@ class AppController(
                 log.info("Called  SSH Client Service: $command")
 
                 textArea.appendText(result)
+            }
+        }
+
+        buttonMulti.setOnAction { value ->
+            run {
+                log.info("Button 'Multi' Clicked! ActionEvent: $value")
+                textArea.appendText("Button 'Multi' Clicked! ActionEvent: $value\n")
+
+                val commands = listOf(
+                    "ls -all /tmp\n",
+                    "ls -all /root\n",
+                    "ls -all /home/jarosm3\n"
+                )
+
+                log.info("Calling SSH Client Service: $commands")
+
+                val results = sshClientService.remoteCommands(
+                    host = "127.0.0.1", port = 2231,
+                    username = "jarosm3", password = "lqrtpb_2",
+                    defaultTimeoutSeconds = 2,
+                    commands = commands
+                    )
+
+                log.info("Called  SSH Client Service: $commands")
+
+                var i = 1
+                for (result in results) {
+                    textArea.appendText("\n")
+                    textArea.appendText("\n")
+                    textArea.appendText("$i.\n")
+                    textArea.appendText(" command: ${result.input}")
+                    textArea.appendText(" output: ${result.output}")
+                    i++
+                }
+
             }
         }
 
