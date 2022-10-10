@@ -1,5 +1,6 @@
 package org.cameek.sshclient.stream
 
+import kotlinx.coroutines.*
 import org.apache.sshd.client.SshClient
 import org.apache.sshd.client.channel.ClientChannel
 import org.apache.sshd.client.session.ClientSession
@@ -7,7 +8,6 @@ import org.apache.sshd.common.channel.Channel
 import org.cameek.sshclient.bean.CmdStrIOE
 import org.cameek.sshclient.event.EmptyListener
 import org.cameek.sshclient.event.Listener
-import org.cameek.sshclient.service.SshClientService
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
@@ -20,7 +20,7 @@ class SshClientShell(
     val timeoutMillis: Long = 1000,
     val username: String,
     val password: String,
-    val commands: Iterable<CmdStrIOE>,  // TODO: here should be CommandProvider (SequentialCmdProvider, FlowCmdProvider)
+    val command: CmdStrIOE,  // TODO: here should be CommandProvider (SequentialCmdProvider, FlowCmdProvider)
     val listener: Listener = EmptyListener()
 
 ): AutoCloseable {
@@ -59,14 +59,34 @@ class SshClientShell(
         log.debug("init - End")
     }
 
-    fun processFlow(): Iterable<CmdStrIOE> {  // TODO: this will return command execution history
+    fun processFlow(): CmdStrIOE {  // TODO: this will return command execution history
         log.debug("processFlow() - Begin")
 
         log.info("Processing flow in SSH client shell")
 
-        val result = emptyList<CmdStrIOE>()
+        var outputString = ""
+        var errorString = ""
 
-        log.debug("processFlow() - End")
+        runBlocking {
+
+            launch(Dispatchers.IO) {
+                inputStream.write(command.input.toByteArray())
+                inputStream.flush()
+            }
+
+            launch(Dispatchers.IO) {
+                outputString = outputStream.toString()
+            }
+
+            launch(Dispatchers.IO) {
+                errorString = errorStream.toString()
+            }
+
+        }
+
+        val result = command.copy(output = outputString, error = errorString)
+
+        log.debug("processFlow() - End, Return result=$result")
 
         return result
     }
