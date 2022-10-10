@@ -22,7 +22,11 @@
     </center>
 
     <right>
-        <VBox prefHeight="10.0" prefWidth="10.0" BorderPane.alignment="CENTER" />
+        <VBox prefHeight="10.0" prefWidth="10.0" BorderPane.alignment="CENTER">
+            <TextArea fx:id="textAreaIn" style="-fx-font-size: 0.8em; -fx-font-family: monospace; " />
+            <TextArea fx:id="textAreaOut" style="-fx-font-size: 0.8em; -fx-font-family: monospace; " />
+            <TextArea fx:id="textAreaErr" style="-fx-font-size: 0.8em; -fx-font-family: monospace; " />
+        </VBox>
     </right>
 
     <bottom>

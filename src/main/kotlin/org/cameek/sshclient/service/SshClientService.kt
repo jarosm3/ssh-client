@@ -5,7 +5,7 @@ import org.apache.sshd.client.SshClient
 import org.apache.sshd.client.channel.ClientChannelEvent
 import org.apache.sshd.client.session.ClientSession
 import org.apache.sshd.common.channel.Channel
-import org.cameek.sshclient.bean.CmdIOE
+import org.cameek.sshclient.bean.CmdStrIOE
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.io.ByteArrayOutputStream
@@ -82,9 +82,9 @@ class SshClientService {
         host: String, port: Int,
         defaultTimeoutSeconds: Long,
         commands: Iterable<String>
-    ): Iterable<CmdIOE> {
+    ): Iterable<CmdStrIOE> {
 
-        val results = mutableListOf<CmdIOE>()
+        val results = mutableListOf<CmdStrIOE>()
 
         log.debug("remoteCommand(...) - Begin, command=$commands")
 
@@ -107,7 +107,7 @@ class SshClientService {
 
                         for (command in commands) {
                             val result = createChannelAndExecute(session, responseStream, defaultTimeoutSeconds, command)
-                            results.add(CmdIOE(input = command, output = result))
+                            results.add(CmdStrIOE(input = command, output = result))
                         }
 
                     }

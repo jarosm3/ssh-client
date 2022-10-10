@@ -27,6 +27,15 @@ class AppController(
     lateinit var textArea: TextArea
 
     @FXML
+    lateinit var textAreaIn: TextArea
+
+    @FXML
+    lateinit var textAreaOut: TextArea
+
+    @FXML
+    lateinit var textAreaErr: TextArea
+
+    @FXML
     lateinit var buttonSingle: Button
 
     @FXML
@@ -74,7 +83,9 @@ class AppController(
                 val commands = listOf(
                     "ls -all /tmp\nexit\n",
                     "ls -all /root\nexit\n",
-                    "ls -all /home/jarosm3\nexit\n"
+                    "ls -all /home/resu\nexit\n",
+                    "echo \"lqrtpb_2\" | sudo -S -k su - && sudo su\nls -all\nexit\nexit",
+                    "sudo su -\nlqrtpb_2\n\n\n\nls -all /root\nexit\nexit\n"
                 )
 
                 log.info("Calling SSH Client Service: $commands")
