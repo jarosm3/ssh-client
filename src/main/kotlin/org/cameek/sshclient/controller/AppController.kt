@@ -4,8 +4,10 @@ import javafx.fxml.FXML
 import javafx.scene.Parent
 import javafx.scene.control.Button
 import javafx.scene.control.TextArea
+import org.cameek.sshclient.bean.CmdStrIOE
 //import net.rgielen.fxweaver.core.FxmlView
 import org.cameek.sshclient.service.SshClientService
+import org.cameek.sshclient.stream.SshClientShell
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
@@ -40,6 +42,9 @@ class AppController(
 
     @FXML
     lateinit var buttonMulti: Button
+
+    @FXML
+    lateinit var buttonMulti2: Button
 
     @FXML
     lateinit var buttonOk: Button
@@ -109,6 +114,40 @@ class AppController(
                     i++
                 }
 
+            }
+        }
+
+        buttonMulti2.setOnAction { value ->
+            run {
+                log.info("Button 'Multi2' Clicked! ActionEvent: $value")
+                textArea.appendText("Button 'Multi2' Clicked! ActionEvent: $value\n")
+
+                val command = "ls -all\n"
+                log.info("Calling SSH Client Service: $command")
+
+
+
+                SshClientShell(
+                    host = "127.0.0.1", port = 2231,
+                    username = "jarosm3", password = "lqrtpb_2",
+                    command = CmdStrIOE("ls -all")
+                ).use {
+                    sshClientShell ->
+                        log.info("sdddddddddddddd")
+                        val resultXXX = sshClientShell.processFlow()
+                        log.info("processFlow returns: $resultXXX")
+
+                       // log.info("Executing from AppController sshClientShell with command=${sshClientShell.command}")
+
+                }
+
+
+//                val result = sshClientService.remoteCommand("jarosm3", "lqrtpb_2",
+//                    "127.0.0.1", 2231, 10, command
+//                )
+                log.info("Called  SSH Client Service: $command")
+
+               // textArea.appendText(result)
             }
         }
 

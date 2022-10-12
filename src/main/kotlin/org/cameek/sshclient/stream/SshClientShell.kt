@@ -10,6 +10,8 @@ import org.cameek.sshclient.event.EmptyListener
 import org.cameek.sshclient.event.Listener
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
+import java.io.Closeable
+import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.TimeUnit
 
@@ -17,19 +19,19 @@ class SshClientShell(
 
     val host: String,
     val port: Int,
-    val timeoutMillis: Long = 1000,
+    val timeoutMillis: Long = 10000,
     val username: String,
     val password: String,
     val command: CmdStrIOE,  // TODO: here should be CommandProvider (SequentialCmdProvider, FlowCmdProvider)
     val listener: Listener = EmptyListener()
 
-): AutoCloseable {
+): Closeable {
 
     private val client: SshClient
     private val clientSession: ClientSession
     private val clientChannel: ClientChannel
-    private val outputStream: ByteArrayOutputStream
-    private val errorStream: ByteArrayOutputStream
+    private val outputStream: InputStream
+    private val errorStream: InputStream
     private val inputStream: OutputStream
 
     init {
@@ -46,15 +48,17 @@ class SshClientShell(
         clientSession.addPasswordIdentity(password)
         clientSession.auth().verify(timeoutMillis, TimeUnit.MILLISECONDS)
 
-        outputStream = ByteArrayOutputStream()
-        errorStream = ByteArrayOutputStream()
+        //outputStream = ByteArrayOutputStream()
+        //errorStream = ByteArrayOutputStream()
 
         clientChannel = clientSession.createChannel(Channel.CHANNEL_SHELL)
         clientChannel.open().verify(timeoutMillis, TimeUnit.MILLISECONDS);
-        clientChannel.setOut(outputStream)
-        clientChannel.setErr(errorStream)
+        //clientChannel.setOut(outputStream)
+        //clientChannel.setErr(errorStream)
 
         inputStream = clientChannel.invertedIn
+        outputStream = clientChannel.invertedOut
+        errorStream = clientChannel.invertedErr
 
         log.debug("init - End")
     }
@@ -75,11 +79,25 @@ class SshClientShell(
             }
 
             launch(Dispatchers.IO) {
-                outputString = outputStream.toString()
+                outputStream.reader(Charsets.UTF_8).use {
+                    reader ->
+                        reader.forEachLine {
+                            line ->
+                                log.debug("out: $line")
+                                outputString = outputString + line + '\n'
+                        }
+                }
             }
 
             launch(Dispatchers.IO) {
-                errorString = errorStream.toString()
+                errorStream.reader(Charsets.UTF_8).use {
+                    reader ->
+                        reader.forEachLine {
+                                line ->
+                                    log.debug("err: $line")
+                                    errorString = errorString + line + '\n'
+                        }
+                }
             }
 
         }

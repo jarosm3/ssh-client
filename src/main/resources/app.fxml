@@ -40,6 +40,10 @@
 
             <Pane minWidth="20" />
 
+            <Button fx:id="buttonMulti2" text="Multi2" />
+
+            <Pane minWidth="20" />
+
             <Button fx:id="buttonOk" text="OK" />
 
             <Pane minWidth="20" />
