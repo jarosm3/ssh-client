@@ -130,7 +130,7 @@ class AppController(
                 SshClientShell(
                     host = "127.0.0.1", port = 2231,
                     username = "jarosm3", password = "lqrtpb_2",
-                    command = CmdStrIOE("ls -all")
+                    command = CmdStrIOE("ls -all\nexit\n")
                 ).use {
                     sshClientShell ->
                         log.info("sdddddddddddddd")
