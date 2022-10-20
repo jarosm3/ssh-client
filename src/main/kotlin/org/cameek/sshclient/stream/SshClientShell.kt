@@ -6,13 +6,13 @@ import org.apache.sshd.client.channel.ClientChannel
 import org.apache.sshd.client.session.ClientSession
 import org.apache.sshd.common.channel.Channel
 import org.cameek.sshclient.bean.CmdStrIOE
-import org.cameek.sshclient.event.EmptyListener
-import org.cameek.sshclient.event.Listener
+import org.cameek.sshclient.event.*
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.io.InputStream
 import java.io.OutputStream
+import java.nio.charset.Charset
 import java.util.concurrent.TimeUnit
 
 class SshClientShell(
@@ -23,7 +23,9 @@ class SshClientShell(
     val username: String,
     val password: String,
     val command: CmdStrIOE,  // TODO: here should be CommandProvider (SequentialCmdProvider, FlowCmdProvider)
-    val listener: Listener = EmptyListener()
+    val listener: Listener = EmptyListener(),
+    val endOfLine: String = "\n",
+    val charset: Charset = Charsets.UTF_8
 
 ): Closeable {
 
@@ -74,7 +76,18 @@ class SshClientShell(
         runBlocking {
 
             launch(Dispatchers.IO) {
-                inputStream.write(command.input.toByteArray())
+                val lines = command.input.split(endOfLine)
+                var i = 0
+                for (line in lines) {
+                    log.debug("in: $line")
+                    inputStream.write(line.toByteArray(charset))
+                    listener.onEvent(InputLineEvent(line))
+                    i++
+                    if (i == lines.size) {
+                        break;
+                    }
+                }
+                //inputStream.write(command.input.toByteArray())
                 inputStream.flush()
             }
 
@@ -84,7 +97,8 @@ class SshClientShell(
                         reader.forEachLine {
                             line ->
                                 log.debug("out: $line")
-                                outputString = outputString + line + '\n'
+                                listener.onEvent(OutputLineEvent(line))
+                                outputString = outputString + line + endOfLine
                         }
                 }
             }
@@ -95,7 +109,8 @@ class SshClientShell(
                         reader.forEachLine {
                                 line ->
                                     log.debug("err: $line")
-                                    errorString = errorString + line + '\n'
+                                    listener.onEvent(ErrorLineEvent(line))
+                                    errorString = errorString + line + endOfLine
                         }
                 }
             }
