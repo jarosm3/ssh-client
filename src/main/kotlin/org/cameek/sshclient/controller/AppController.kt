@@ -130,13 +130,13 @@ class AppController(
                 SshClientShell(
                     host = "127.0.0.1", port = 2231,
                     username = "jarosm3", password = "lqrtpb_2",
-                    command = CmdStrIOE("ls -all\nexit\n")
                 ).use {
                     sshClientShell ->
-                        log.info("sdddddddddddddd")
-                        val resultXXX = sshClientShell.processFlow()
-                        log.info("processFlow returns: $resultXXX")
+                        val commandResult = sshClientShell.processCommand(CmdStrIOE("ls -all\nexit\n"))
+                        log.info("processCommand returns: $commandResult")
 
+                        textArea.appendText("---")
+                        textArea.appendText(commandResult.output)
                        // log.info("Executing from AppController sshClientShell with command=${sshClientShell.command}")
 
                 }
@@ -145,7 +145,7 @@ class AppController(
 //                val result = sshClientService.remoteCommand("jarosm3", "lqrtpb_2",
 //                    "127.0.0.1", 2231, 10, command
 //                )
-                log.info("Called  SSH Client Service: $command")
+                log.info("Called SSH Client Service: $command")
 
                // textArea.appendText(result)
             }

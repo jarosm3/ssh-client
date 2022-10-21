@@ -16,6 +16,7 @@ import java.util.EnumSet;
 import java.util.concurrent.TimeUnit;
 
 @Component
+@SuppressWarnings("unused")
 public class SshClientServiceJava {
 
     private static final Logger log = LoggerFactory.getLogger(SshClientServiceJava.class);

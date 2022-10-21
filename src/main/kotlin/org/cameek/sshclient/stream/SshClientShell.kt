@@ -1,19 +1,26 @@
+@file:Suppress("MemberVisibilityCanBePrivate", "CanBeParameter")
+
 package org.cameek.sshclient.stream
 
 import kotlinx.coroutines.*
+import org.apache.commons.text.StringEscapeUtils
 import org.apache.sshd.client.SshClient
 import org.apache.sshd.client.channel.ClientChannel
+import org.apache.sshd.client.channel.ClientChannelEvent
 import org.apache.sshd.client.session.ClientSession
 import org.apache.sshd.common.channel.Channel
+import org.apache.sshd.scp.client.DefaultScpClient
 import org.cameek.sshclient.bean.CmdStrIOE
 import org.cameek.sshclient.event.*
+import org.cameek.sshclient.service.filter.BasicSshFilter
 import org.slf4j.LoggerFactory
-import java.io.ByteArrayOutputStream
 import java.io.Closeable
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.charset.Charset
+import java.util.*
 import java.util.concurrent.TimeUnit
+import java.util.function.Predicate
 
 class SshClientShell(
 
@@ -22,8 +29,6 @@ class SshClientShell(
     val timeoutMillis: Long = 10000,
     val username: String,
     val password: String,
-    val command: CmdStrIOE,  // TODO: here should be CommandProvider (SequentialCmdProvider, FlowCmdProvider)
-    val listener: Listener = EmptyListener(),
     val endOfLine: String = "\n",
     val charset: Charset = Charsets.UTF_8
 
@@ -35,6 +40,10 @@ class SshClientShell(
     private val outputStream: InputStream
     private val errorStream: InputStream
     private val inputStream: OutputStream
+
+    companion object {
+        private val log = LoggerFactory.getLogger(SshClientShell::class.java)
+    }
 
     init {
         log.debug("init - Begin")
@@ -54,7 +63,8 @@ class SshClientShell(
         //errorStream = ByteArrayOutputStream()
 
         clientChannel = clientSession.createChannel(Channel.CHANNEL_SHELL)
-        clientChannel.open().verify(timeoutMillis, TimeUnit.MILLISECONDS);
+        clientChannel.open().verify(timeoutMillis, TimeUnit.MILLISECONDS)
+
         //clientChannel.setOut(outputStream)
         //clientChannel.setErr(errorStream)
 
@@ -65,10 +75,15 @@ class SshClientShell(
         log.debug("init - End")
     }
 
-    fun processFlow(): CmdStrIOE {  // TODO: this will return command execution history
-        log.debug("processFlow() - Begin")
+    fun processCommand(
+        command: CmdStrIOE,
+        outputFilter: Predicate<String> = BasicSshFilter.singleton,
+        errorFilter: BasicSshFilter = BasicSshFilter.singleton,
+        listener: Listener = EmptyListener.singleton,
+    ): CmdStrIOE {
+        log.debug("processCommand() - Begin")
 
-        log.info("Processing flow in SSH client shell")
+        log.info("Processing command in SSH client shell")
 
         var outputString = ""
         var errorString = ""
@@ -76,50 +91,103 @@ class SshClientShell(
         runBlocking {
 
             launch(Dispatchers.IO) {
+                log.debug("Input Thread for Sending to SSH - Begin")
+
                 val lines = command.input.split(endOfLine)
                 var i = 0
                 for (line in lines) {
-                    log.debug("in: $line")
+
+                    if ((i == (lines.size - 1)) && (line.isNotEmpty())) {
+                        log.debug("Skipping last portion of input split because it's empty")
+                        break
+
+                    }
+
+                    if (log.isDebugEnabled) {
+                        val printLine = StringEscapeUtils.escapeJava(line + endOfLine)
+                        log.debug("Sending to SSH STDIN >> \"$printLine\"")
+                    }
+
                     inputStream.write(line.toByteArray(charset))
+                    inputStream.write(endOfLine.toByteArray(charset))
                     listener.onEvent(InputLineEvent(line))
                     i++
-                    if (i == lines.size) {
-                        break;
-                    }
                 }
-                //inputStream.write(command.input.toByteArray())
+
                 inputStream.flush()
+
+                log.debug("Input Thread for Sending to SSH - End")
             }
 
             launch(Dispatchers.IO) {
-                outputStream.reader(Charsets.UTF_8).use {
+                log.debug("Output Thread for Receiving from SSH - Begin")
+
+                outputStream.reader(charset).use {
                     reader ->
                         reader.forEachLine {
                             line ->
-                                log.debug("out: $line")
-                                listener.onEvent(OutputLineEvent(line))
-                                outputString = outputString + line + endOfLine
+
+                                if (log.isDebugEnabled) {
+                                    val printLine = StringEscapeUtils.escapeJava(line + endOfLine)
+                                    log.debug("Received from SSH STDOUT << \"$printLine\"")
+                                }
+
+                                // If filter predicate returns false, ignore such a line
+                                if (!outputFilter.test(line)) {
+                                    if (log.isDebugEnabled) {
+                                        val printLine = StringEscapeUtils.escapeJava(line + endOfLine)
+                                        log.debug("Ignoring line from SSH STDOUT \"$printLine\"")
+                                    }
+                                }
+
+                                // Accept the line
+                                else {
+                                    listener.onEvent(OutputLineEvent(line))
+                                    outputString = outputString + line + endOfLine
+                                }
                         }
                 }
+
+                log.debug("Output Thread for Receiving from SSH - End")
             }
 
             launch(Dispatchers.IO) {
-                errorStream.reader(Charsets.UTF_8).use {
+                log.debug("Error Thread for Receiving from SSH - Begin")
+
+                errorStream.reader(charset).use {
                     reader ->
                         reader.forEachLine {
-                                line ->
-                                    log.debug("err: $line")
+                            line ->
+
+                                if (log.isDebugEnabled) {
+                                    val printLine = StringEscapeUtils.escapeJava(line + endOfLine)
+                                    log.debug("Received from SSH STDERR << \"$printLine\"")
+                                }
+
+                                // If filter predicate returns false, ignore such a line
+                                if (!errorFilter.test(line)) {
+                                    if (log.isDebugEnabled) {
+                                        val printLine = StringEscapeUtils.escapeJava(line + endOfLine)
+                                        log.debug("Ignoring line from SSH STDERR \"$printLine\"")
+                                    }
+                                }
+
+                                // Accept the line
+                                else {
                                     listener.onEvent(ErrorLineEvent(line))
                                     errorString = errorString + line + endOfLine
+                                }
                         }
                 }
+
+                log.debug("Error Thread for Receiving from SSH - End")
             }
 
         }
 
         val result = command.copy(output = outputString, error = errorString)
 
-        log.debug("processFlow() - End, Return result=$result")
+        log.debug("processCommand() - End, Return result=$result")
 
         return result
     }
@@ -168,7 +236,4 @@ class SshClientShell(
         log.debug("close() - End")
     }
 
-    companion object {
-        private val log = LoggerFactory.getLogger(SshClientShell::class.java)
-    }
 }

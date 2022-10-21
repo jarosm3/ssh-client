@@ -22,8 +22,10 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
     implementation("org.apache.commons:commons-lang3:3.12.0")
+    implementation("org.apache.commons:commons-text:1.10.0")
     implementation("io.projectreactor:reactor-core:3.4.23")
     implementation("org.apache.sshd:sshd-core:2.9.1")
+    implementation("org.apache.sshd:sshd-scp:2.9.1")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
 
@@ -44,19 +46,19 @@ tasks.withType<Test> {
 // 2. Defining for Kotlin sources: Java + Kotlin + Resources
 //  => This is needed to support mixed mode for both Java and Kotlin
 // Ref.: https://stackoverflow.com/questions/38131237/mixing-java-and-kotlin-in-gradle-project-kotlin-cannot-find-java-class
-sourceSets {
-    main {
-        java.srcDirs()
-        resources.srcDirs()
-    }
-}
-
-kotlin.sourceSets {
-    main {
-        kotlin.srcDirs("src/main/java", "src/main/kotlin")
-        resources.srcDirs("src/main/resources")
-    }
-}
+//sourceSets {
+//    main {
+//        java.srcDirs()
+//        resources.srcDirs()
+//    }
+//}
+//
+//kotlin.sourceSets {
+//    main {
+//        kotlin.srcDirs("src/main/java", "src/main/kotlin")
+//        resources.srcDirs("src/main/resources")
+//    }
+//}
 
 javafx {
     version = "17.0.2"
