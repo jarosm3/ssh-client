@@ -4,11 +4,14 @@ import javafx.fxml.FXML
 import javafx.scene.Parent
 import javafx.scene.control.Button
 import javafx.scene.control.TextArea
+import kotlinx.coroutines.*
+import kotlinx.coroutines.javafx.JavaFx
 import org.cameek.sshclient.bean.CmdStrIOE
 //import net.rgielen.fxweaver.core.FxmlView
 import org.cameek.sshclient.service.SshClientService
 import org.cameek.sshclient.stream.SshClientShell
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.DisposableBean
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 
@@ -16,11 +19,13 @@ import org.springframework.stereotype.Component
 //@FxmlView("/chart.fxml")
 class AppController(
     @Autowired val sshClientService: SshClientService
-) {
+): DisposableBean {
 
     companion object {
         private val log = LoggerFactory.getLogger(AppController::class.java)
     }
+
+    val coroutineScope = MainScope()
 
     @FXML
     lateinit var appPane: Parent
@@ -119,39 +124,52 @@ class AppController(
 
         buttonMulti2.setOnAction { value ->
             run {
-                log.info("Button 'Multi2' Clicked! ActionEvent: $value")
-                textArea.appendText("Button 'Multi2' Clicked! ActionEvent: $value\n")
 
-                val command = "ls -all\n"
-                log.info("Calling SSH Client Service: $command")
+                coroutineScope.launch {
+
+                    log.info("Button 'Multi2' Clicked! ActionEvent: $value")
+                    textArea.appendText("Button 'Multi2' Clicked! ActionEvent: $value\n")
+
+                    val command = "ls -all\n"
+                    log.info("Calling SSH Client Service: $command")
 
 
 
-                SshClientShell(
-                    host = "127.0.0.1", port = 2231,
-                    username = "jarosm3", password = "lqrtpb_2",
-                ).use {
-                    sshClientShell ->
+                    SshClientShell(
+                        host = "127.0.0.1", port = 2231,
+                        username = "jarosm3", password = "lqrtpb_2",
+                    ).use { sshClientShell ->
                         val commandResult = sshClientShell.processCommand(CmdStrIOE("ls -all\nexit\n"))
                         log.info("processCommand returns: $commandResult")
 
                         textArea.appendText("---")
                         textArea.appendText(commandResult.output)
-                       // log.info("Executing from AppController sshClientShell with command=${sshClientShell.command}")
+                        // log.info("Executing from AppController sshClientShell with command=${sshClientShell.command}")
 
-                }
+                    }
 
 
 //                val result = sshClientService.remoteCommand("jarosm3", "lqrtpb_2",
 //                    "127.0.0.1", 2231, 10, command
 //                )
-                log.info("Called SSH Client Service: $command")
+                    log.info("Called SSH Client Service: $command")
+                }
 
                // textArea.appendText(result)
             }
         }
 
         buttonCancel.setOnAction { value -> println("Button Cancel Clicked! ActionEvent: $value") }
+    }
+
+    override fun destroy() {
+
+        log.debug("destroy() - Begin")
+
+        log.info("Destroying and clean-up")
+        coroutineScope.cancel()
+
+        log.debug("destroy() - End")
     }
 
 }
