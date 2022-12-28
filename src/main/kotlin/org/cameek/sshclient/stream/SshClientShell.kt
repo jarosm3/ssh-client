@@ -13,6 +13,7 @@ import org.apache.sshd.scp.client.DefaultScpClient
 import org.cameek.sshclient.bean.CmdStrIOE
 import org.cameek.sshclient.event.*
 import org.cameek.sshclient.service.filter.BasicSshFilter
+import org.cameek.sshclient.service.filter.ProcessingContext
 import org.slf4j.LoggerFactory
 import java.io.Closeable
 import java.io.InputStream
@@ -77,7 +78,7 @@ class SshClientShell(
 
     fun processCommand(
         command: CmdStrIOE,
-        outputFilter: Predicate<String> = BasicSshFilter.singleton,
+        outputFilter: Predicate<ProcessingContext> = BasicSshFilter.singleton,
         errorFilter: BasicSshFilter = BasicSshFilter.singleton,
         listener: Listener = EmptyListener.singleton,
     ): CmdStrIOE {
@@ -85,8 +86,8 @@ class SshClientShell(
 
         log.info("Processing command in SSH client shell")
 
-        var outputString = ""
-        var errorString = ""
+        val outputString = StringBuffer()
+        val errorString = StringBuffer()
 
         runBlocking {
 
@@ -133,7 +134,7 @@ class SshClientShell(
                                 }
 
                                 // If filter predicate returns false, ignore such a line
-                                if (!outputFilter.test(line)) {
+                                if (!outputFilter.test(ProcessingContext(currentLine = line))) {
                                     if (log.isDebugEnabled) {
                                         val printLine = StringEscapeUtils.escapeJava(line + endOfLine)
                                         log.debug("Ignoring line from SSH STDOUT \"$printLine\"")
@@ -143,7 +144,8 @@ class SshClientShell(
                                 // Accept the line
                                 else {
                                     listener.onEvent(OutputLineEvent(line))
-                                    outputString = outputString + line + endOfLine
+                                    outputString.append(line)
+                                    outputString.append(endOfLine)
                                 }
                         }
                 }
@@ -165,7 +167,7 @@ class SshClientShell(
                                 }
 
                                 // If filter predicate returns false, ignore such a line
-                                if (!errorFilter.test(line)) {
+                                if (!errorFilter.test(ProcessingContext(currentLine = line))) {
                                     if (log.isDebugEnabled) {
                                         val printLine = StringEscapeUtils.escapeJava(line + endOfLine)
                                         log.debug("Ignoring line from SSH STDERR \"$printLine\"")
@@ -175,7 +177,8 @@ class SshClientShell(
                                 // Accept the line
                                 else {
                                     listener.onEvent(ErrorLineEvent(line))
-                                    errorString = errorString + line + endOfLine
+                                    errorString.append(line)
+                                    errorString.append(endOfLine)
                                 }
                         }
                 }
@@ -185,7 +188,7 @@ class SshClientShell(
 
         }
 
-        val result = command.copy(output = outputString, error = errorString)
+        val result = command.copy(output = outputString.toString(), error = errorString.toString())
 
         log.debug("processCommand() - End, Return result=$result")
 
